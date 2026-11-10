@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ifsoul/adapter-sdk':
-        specifier: file:vendor/ifsoul-adapter-sdk-0.4.0.tgz
-        version: file:vendor/ifsoul-adapter-sdk-0.4.0.tgz
+        specifier: file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz
+        version: file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz
       mineflayer:
         specifier: 4.39.0
         version: 4.39.0
@@ -25,9 +25,9 @@ packages:
     resolution: {integrity: sha512-CO+SE4weOsfJf+C5LM8argzvotrXw252/ZU6SM2Tz63fEblhH1uuVaaO4ISYFuN4Q6BhTo7I3qIdi8ydUQCqhw==}
     engines: {node: '>=16'}
 
-  '@ifsoul/adapter-sdk@file:vendor/ifsoul-adapter-sdk-0.4.0.tgz':
-    resolution: {integrity: sha512-QoNUXX7WJzoEEdjWDw2UPn9wiQEjagAV3WRI1HyLaRiuZ4oTRERQmpVfeHvULF7hRmvKAiWcN81Q5SE5aIk+Ng==, tarball: file:vendor/ifsoul-adapter-sdk-0.4.0.tgz}
-    version: 0.4.0
+  '@ifsoul/adapter-sdk@file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz':
+    resolution: {integrity: sha512-JnPtgXnvBNrJOEHTuoyQy5OyqRS2gCn5kMti0OsqEA59f+zUWyb0KPhyCbBMxs8s0t3ksvfcqDaM2m6oznx0Qg==, tarball: file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz}
+    version: 0.5.0
     engines: {node: '>=22.18'}
 
   '@types/node-rsa@1.1.4':
@@ -348,7 +348,7 @@ snapshots:
       jsonwebtoken: 9.0.3
       uuid: 8.3.2
 
-  '@ifsoul/adapter-sdk@file:vendor/ifsoul-adapter-sdk-0.4.0.tgz': {}
+  '@ifsoul/adapter-sdk@file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz': {}
 
   '@types/node-rsa@1.1.4':
     dependencies:

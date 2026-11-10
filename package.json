@@ -1,6 +1,6 @@
 {
   "name": "ifsoul-minecraft-bridge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,10 +9,11 @@
   "packageManager": "pnpm@10.15.0",
   "scripts": {
     "check": "node scripts/check-version.mjs && node --check src/start.mjs && node --test",
-    "start": "node src/start.mjs"
+    "start": "node src/start.mjs",
+    "companion": "node src/companion.mjs"
   },
   "dependencies": {
-    "@ifsoul/adapter-sdk": "file:vendor/ifsoul-adapter-sdk-0.4.0.tgz",
+    "@ifsoul/adapter-sdk": "file:vendor/release050-cc2c16233fb6/ifsoul-adapter-sdk-0.5.0.tgz",
     "mineflayer": "4.39.0"
   }
 }
