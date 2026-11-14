@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, writeFile, rename, chmod } from "node:fs/promises";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
@@ -11,7 +11,7 @@ const clean = (code, message) => ({ error: { code, message } });
 const same = (a, b) =>
   typeof a === "string" &&
   typeof b === "string" &&
-  a.length === b.length &&
+  Buffer.byteLength(a) === Buffer.byteLength(b) &&
   timingSafeEqual(Buffer.from(a), Buffer.from(b));
 export function serviceOrigin(value) {
   const u = new URL(value);
@@ -153,9 +153,18 @@ export async function startCompanion(options = {}) {
     const response = await fetch(endpoint + "/api/game/device/" + path, {
       method: "POST",
       redirect: "error",
-      signal: AbortSignal.timeout(path === "dialogue" ? 65000 : 10000),
+      signal:
+        path === "ready" || path === "dialogue"
+          ? AbortSignal.any([
+              activeRequest.signal,
+              AbortSignal.timeout(path === "dialogue" ? 65000 : 10000),
+            ])
+          : AbortSignal.timeout(10000),
       headers: {
         "content-type": "application/json",
+        ...(options.hostSecret && endpoint === options.desktopOrigin
+          ? { "x-ifsoul-desktop": options.hostSecret }
+          : {}),
         ...(credential ? { authorization: "Bearer " + credential } : {}),
       },
       body: JSON.stringify(body),
@@ -188,7 +197,10 @@ export async function startCompanion(options = {}) {
     }
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
   }
+  let activeRequest = new AbortController();
   function stop() {
+    activeRequest.abort();
+    activeRequest = new AbortController();
     epoch++;
     connector?.stop();
     connector = undefined;
@@ -256,6 +268,10 @@ export async function startCompanion(options = {}) {
               deadlineMs: 60000,
               cooldownMs: 1500,
               maxCalls: 10,
+              historyConsent: (allowed) => {
+                if (generation !== epoch) return Promise.reject(Error("stale"));
+                return remote("history-consent", { allowed });
+              },
             };
             connector = attachConnector(
               current,
@@ -286,8 +302,22 @@ export async function startCompanion(options = {}) {
                     "Service reply unavailable. Check connection permissions, model readiness or managed balance, then reconnect.";
                   phase = "error";
                 }
-                if(event.event==="invalidated"&&!['spawn','stop','fallback','request-failed','deadline'].includes(event.reason)){
-                  phase=event.reason==='recipient-left'?'waiting-player':'error';error='The game session changed. Check that the selected player is online, then reconnect.';
+                if (
+                  event.event === "invalidated" &&
+                  ![
+                    "spawn",
+                    "stop",
+                    "fallback",
+                    "request-failed",
+                    "deadline",
+                  ].includes(event.reason)
+                ) {
+                  phase =
+                    event.reason === "recipient-left"
+                      ? "waiting-player"
+                      : "error";
+                  error =
+                    "The game session changed. Check that the selected player is online, then reconnect.";
                 }
                 if (event.event === "ready") {
                   phase = "ready";
@@ -314,6 +344,17 @@ export async function startCompanion(options = {}) {
       });
     });
   }
+  function approve(appOrigin) {
+    const nextOrigin = serviceOrigin(appOrigin);
+    stop();
+    approvedOrigin = nextOrigin;
+    authorizedPrincipalId = undefined;
+    pairCode = randomBytes(12).toString("base64url");
+    pairExpiry = Date.now() + 300000;
+    controlToken = undefined;
+    attempts = 0;
+    return pairCode;
+  }
   const server = createServer(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -327,12 +368,28 @@ export async function startCompanion(options = {}) {
       res.end(JSON.stringify(body));
     };
     try {
-      if (req.headers.host !== `127.0.0.1:${port}`)
+      if (
+        req.headers.host !== `127.0.0.1:${port}` ||
+        (options.hostSecret &&
+          !same(req.headers["x-ifsoul-desktop"], options.hostSecret))
+      )
         return reply(
           403,
           clean("forbidden", "Open the companion at its loopback address."),
         );
-      if (req.method === "GET" && path === "/") {
+      const nonce = req.headers["x-ifsoul-desktop-nonce"];
+      if (
+        options.responseKey &&
+        typeof nonce === "string" &&
+        /^[a-zA-Z0-9_-]{32}$/.test(nonce)
+      )
+        res.setHeader(
+          "X-IfSoul-Desktop-Proof",
+          createHmac("sha256", options.responseKey)
+            .update(nonce)
+            .digest("base64url"),
+        );
+      if (!options.hostSecret && req.method === "GET" && path === "/") {
         if (req.headers.origin && req.headers.origin !== origin)
           return reply(403, clean("forbidden", "Open the companion directly."));
         res.setHeader("Content-Type", "text/html");
@@ -368,7 +425,7 @@ export async function startCompanion(options = {}) {
         chunks.push(chunk);
       }
       const text = Buffer.concat(chunks).toString("utf8");
-      if (req.method === "POST" && path === "/consent") {
+      if (!options.hostSecret && req.method === "POST" && path === "/consent") {
         if (
           requestOrigin !== origin ||
           !req.headers["content-type"]?.startsWith(
@@ -382,14 +439,7 @@ export async function startCompanion(options = {}) {
         const fields = new URLSearchParams(text);
         if (!same(fields.get("csrf"), csrf))
           return reply(403, clean("forbidden", "Reload the companion page."));
-        const nextOrigin = serviceOrigin(fields.get("appOrigin"));
-        stop();
-        approvedOrigin = nextOrigin;
-        authorizedPrincipalId = undefined;
-        pairCode = randomBytes(12).toString("base64url");
-        pairExpiry = Date.now() + 300000;
-        controlToken = undefined;
-        attempts = 0;
+        approve(fields.get("appOrigin"));
         res.writeHead(303, { Location: "/" });
         res.end();
         return;
@@ -601,10 +651,14 @@ export async function startCompanion(options = {}) {
   });
   return {
     origin,
+    ...(options.hostSecret ? { approve } : {}),
     status,
     stop: async () => {
       stop();
-      await new Promise((r) => server.close(r));
+      await new Promise((r) => {
+        server.close(r);
+        server.closeAllConnections();
+      });
     },
   };
 }

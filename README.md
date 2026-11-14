@@ -4,6 +4,11 @@ One Mineflayer player client connects a selected player to an IfSoul character
 through private text whispers. Games own movement, combat, pathfinding and actions;
 the bridge forwards bounded dialogue and observations.
 
+Verified private Minecraft whisper through installed IfSoul Desktop and local
+Ollama. The connector accepts only the approved player's private whisper,
+tracks roster/spawn and lifecycle changes, and returns one private reply.
+It does not target native server NPCs, group dialogue or public chat.
+
 ## Install
 
 Use Node22.18–24 and pnpm10.15.0:
@@ -19,7 +24,7 @@ The repository includes its public SDK dependency and a checksum/source receipt.
 
 ## Configure through the App
 
-Run `pnpm companion`, open `http://127.0.0.1:8811`, and explicitly approve the App origin you opened yourself. In the App's **Settings → Minecraft connection**, enter the one-use local code, select the independent Minecraft server address, bot/player names, owned character/memory and available provider, approve private dialogue, and save/start. The companion generates and persists validated settings; no JSON, UUID or token editing is needed.
+Run `pnpm companion`, open `http://127.0.0.1:8811`, and explicitly approve the App origin you opened yourself. In the App's **Games → Configure Minecraft → Mineflayer**, enter the one-use local code, select the independent Minecraft server address, bot/player names, owned character/memory and available provider, approve private dialogue, and save/start. The companion generates and persists validated settings; no JSON, UUID or token editing is needed.
 
 The browser does not install or launch the native companion. The one-time installation above requires three preparation commands and `pnpm companion` launches it. Later launches require only `pnpm companion`. Keep that terminal running. The companion binds only literal loopback and accepts an exact locally approved App origin. It has no arbitrary command/file endpoint. Provider keys remain in the selected service.
 

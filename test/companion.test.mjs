@@ -227,7 +227,9 @@ test("companion requires local consent, exact Host/Origin, single-use code, scop
     assert.equal(companion.status().phase, "error");
     assert.match(companion.status().error, /balance|permissions/);
     assert.equal(companion.status().connector.ready, false);
-    bot.emit("playerLeft",{uuid:bot.players.Tester.uuid});assert.equal(companion.status().phase,"waiting-player");assert.match(companion.status().error,/selected player/);
+    bot.emit("playerLeft", { uuid: bot.players.Tester.uuid });
+    assert.equal(companion.status().phase, "waiting-player");
+    assert.match(companion.status().error, /selected player/);
     await post("/stop");
     assert.equal(companion.status().running, false);
     await consent(app);
@@ -335,4 +337,58 @@ test("endpoint and Minecraft validators reject ambient URLs, auth/version change
     { botName: "Tester" },
   ])
     assert.throws(() => minecraftSettings({ ...minecraft, ...change }));
+});
+
+test("desktop companion consent and pairing stay behind the native host boundary", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "ifsoul-desktop-companion-"));
+  const app = "http://127.0.0.1:28788";
+  const hostSecret = "a".repeat(43);
+  let companion;
+  try {
+    companion = await startCompanion({ directory, hostSecret, port: 18812 });
+    const options = {
+      method: "POST",
+      headers: { ...headers(app), "X-IfSoul-Desktop": hostSecret },
+      body: JSON.stringify({ code: companion.approve(app) }),
+    };
+    assert.equal((await fetch(companion.origin)).status, 403);
+    assert.equal(
+      (
+        await fetch(companion.origin + "/pair", {
+          ...options,
+          headers: headers(app),
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await fetch(companion.origin + "/pair", {
+          ...options,
+          headers: { ...options.headers, origin: "https://example.test" },
+        })
+      ).status,
+      403,
+    );
+    const paired = await fetch(companion.origin + "/pair", options);
+    assert.equal(paired.status, 200);
+    const { controlToken } = await paired.json();
+    const status = () =>
+      fetch(companion.origin + "/status", {
+        headers: {
+          ...headers(app, controlToken),
+          "X-IfSoul-Desktop": hostSecret,
+        },
+      });
+    assert.equal((await status()).status, 200);
+    companion.approve(app);
+    assert.equal((await status()).status, 403);
+    assert.equal(
+      (await fetch(companion.origin + "/pair", options)).status,
+      403,
+    );
+  } finally {
+    await companion?.stop();
+    await rm(directory, { recursive: true, force: true });
+  }
 });

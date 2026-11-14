@@ -10,6 +10,7 @@ export function attachConnector(bot, config, transport, receipt = () => {}) {
   let lastAccepted = -Infinity,
     calls = 0,
     dimension;
+  let updatingConsent = false;
   const queue = [],
     history = [],
     listeners = [];
@@ -151,6 +152,38 @@ export function attachConnector(bot, config, transport, receipt = () => {}) {
       /[\p{Cc}\p{Cf}]/u.test(message)
     )
       return;
+    const consent =
+      message === "!ifsoul allow-history"
+        ? true
+        : message === "!ifsoul deny-history"
+          ? false
+          : undefined;
+    if (consent !== undefined && config.historyConsent) {
+      if (updatingConsent) return;
+      updatingConsent = true;
+      const consentEpoch = epoch;
+      void config
+        .historyConsent(consent)
+        .then(
+          () => {
+            if (ready && !stopped && epoch === consentEpoch && binding(name))
+              bot.whisper(
+                name,
+                consent
+                  ? "App owner history inspection enabled for this connection."
+                  : "App owner history inspection disabled for this connection.",
+              );
+          },
+          () => {
+            if (ready && !stopped && epoch === consentEpoch && binding(name))
+              bot.whisper(name, "The history permission could not be changed.");
+          },
+        )
+        .finally(() => {
+          updatingConsent = false;
+        });
+      return;
+    }
     if (
       calls + queue.length >= config.maxCalls ||
       Date.now() - lastAccepted < config.cooldownMs ||
