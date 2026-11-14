@@ -1,4 +1,4 @@
-# Minecraft player bridge
+# IfSoul Mineflayer bridge
 
 One Mineflayer player client connects a selected player to an IfSoul character
 through private text whispers. Games own movement, combat, pathfinding and actions;
@@ -14,8 +14,8 @@ It does not target native server NPCs, group dialogue or public chat.
 Use Node22.18–24 and pnpm10.15.0:
 
 ```sh
-git clone https://github.com/openifsoul/bridge-minecraft.git
-cd bridge-minecraft
+git clone https://github.com/openifsoul/bridge-minecraft-mineflayer.git
+cd bridge-minecraft-mineflayer
 pnpm install --frozen-lockfile
 pnpm check
 ```
